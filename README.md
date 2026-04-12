@@ -1,154 +1,211 @@
-# Age & Gender Prediction System
+# Age and Gender Predictor Using CNN Functional API
 
-## Overview
-This project is a deep learning–based **Age and Gender Prediction System** that estimates a person’s **age (regression)** and **gender (binary classification)** from a face image.  
-It uses a **fine-tuned ResNet50 backbone**, trained on the **UTKFace dataset**, with a clean and consistent preprocessing pipeline to ensure stable real-world predictions.
+A cleaner, more professional version of an age-and-gender prediction project built around a multitask CNN pipeline, ResNet50 transfer learning, MTCNN face detection, and a Gradio demo app.
 
-The system is designed for **academic projects, demos, and learning purposes**, not for biometric or medical use.
+## What This Project Does
 
----
+This repository predicts two things from a face image:
 
-## Key Features
-- Predicts **age** as a continuous value (non-negative)
-- Predicts **gender** with probability and uncertainty handling
-- Uses **MTCNN** for face detection during inference
-- Clean **training–inference consistency** (same preprocessing)
-- Interactive **Gradio web interface**
-- Robust to moderate pose, lighting, and background variations
+- **Age** as a regression output
+- **Gender** as a binary classification output with uncertainty handling
 
----
+The original work lived mostly inside a notebook. This version keeps that notebook for reference, but also adds a reusable Python package, a training script, a runnable app entrypoint, and a stronger repository structure for demos, submissions, and GitHub presentation.
+
+## Highlights
+
+- Multitask learning with a shared **ResNet50** backbone
+- Separate prediction heads for **age** and **gender**
+- **MTCNN**-based face detection before inference
+- Gradio app for quick local demos
+- Reusable package structure instead of notebook-only code
+- Configurable dataset and model paths via environment variables
+- Configurable training epochs, app host/port, and optional dataset subsampling
+- Cleaner repository layout for academic and portfolio use
+
+## Preview
+
+![Project example](Example.jpeg)
+
+## Repository Structure
+
+```text
+AGE-AND-GENDER-PREDICTOR-USING-CNN-FUNCTIONAL-API/
+├── age_gender_predictor/
+│   ├── __init__.py
+│   ├── config.py
+│   ├── data.py
+│   ├── inference.py
+│   ├── model.py
+│   └── ui.py
+├── scripts/
+│   └── train.py
+├── app.py
+├── Example.jpeg
+├── requirements.txt
+├── utk-dataset-model.ipynb
+└── README.md
+```
 
 ## Model Architecture
-- **Backbone**: ResNet50 (ImageNet pretrained, `include_top=False`)
-- **Shared feature extractor**
-- **Age head**:
-  - Conv2D → BatchNorm → GlobalAveragePooling
-  - Dense layers
-  - ReLU output (prevents negative ages)
-- **Gender head**:
-  - Conv2D → BatchNorm → GlobalAveragePooling
-  - Dense layers
-  - Sigmoid output (probability)
 
----
+The training pipeline uses a pretrained **ResNet50** backbone with two task-specific heads:
 
-## Dataset
-- **UTKFace Dataset**
-- Each image filename encodes:
-  - Age
-  - Gender
-- Images are already **aligned and cropped**, making them suitable for training
+- **Age head**
+  - Conv2D
+  - BatchNormalization
+  - GlobalAveragePooling2D
+  - Dense layers with dropout
+  - ReLU output for non-negative age prediction
 
-Preprocessing applied:
-- Resize to `224 × 224`
-- `ResNet50 preprocess_input`
-- Data augmentation **only on training set**
-
----
+- **Gender head**
+  - Conv2D
+  - BatchNormalization
+  - GlobalAveragePooling2D
+  - Dense layers with dropout
+  - Sigmoid output for gender probability
 
 ## Training Strategy
-### Stage 1: Frozen Backbone
-- ResNet50 weights frozen
-- Train only task-specific heads
+
+### Stage 1
+
+- Freeze the full ResNet50 backbone
+- Train only the custom heads
+- Optimizer: Adam
 - Learning rate: `1e-4`
 
-### Stage 2: Fine-tuning
-- Unfreeze `conv5` block of ResNet50
-- Lower learning rate: `1e-5`
-- Early stopping on validation gender AUC
+### Stage 2
 
----
+- Unfreeze the `conv5` block only
+- Fine-tune with a smaller learning rate
+- Learning rate: `1e-5`
+- Early stopping based on validation gender AUC
 
-## Loss Functions and Metrics
-### Loss
-- **Age**: Huber Loss (robust to outliers)
-- **Gender**: Binary Cross-Entropy
+## Data Assumptions
 
-### Loss Weights
-- Age: `1.0`
-- Gender: `0.7` (prevents gender task from dominating)
+The project expects the aligned **UTKFace** image files, where each filename starts with:
 
-### Metrics
-- Age: MAE
-- Gender: Accuracy, AUC
+```text
+age_gender_race_...
+```
 
----
+Example:
 
-## Inference Pipeline
-1. User uploads an image
-2. **MTCNN** detects and crops the most confident face
-3. Face is resized and preprocessed
-4. Model predicts:
-   - Age
-   - Gender probability
-5. Gender decision:
-   - `< 0.45` → Male
-   - `> 0.55` → Female
-   - `0.45–0.55` → Uncertain
+```text
+25_0_2_20170116174525125.jpg
+```
 
----
+By default, training looks for images in:
 
-## Gradio Interface
-- Simple web UI for image upload
-- Displays:
-  - Predicted Age
-  - Predicted Gender
-  - Gender Probability
-- Handles cases where no face is detected
+```text
+./data/UTKFace
+```
 
----
+You can override that path with:
 
-## Expected Performance
-- **Gender accuracy**: ~85–90% on clear frontal faces
-- **Age MAE**:
-  - Adults: ±6–8 years
-  - Children / elderly: ±8–12 years
+```bash
+export UTKFACE_DATASET_DIR=/absolute/path/to/UTKFace
+```
 
-Performance may degrade for:
-- Side profiles
-- Poor lighting
-- Heavy occlusion
-- Very young children
+If you have the UTKFace archive on your Desktop, you can extract it into the default project path with:
 
----
+```bash
+mkdir -p data
+unzip "/Users/japmanpreetsingh/Desktop/archive (3).zip" -d data
+```
+
+## Run Locally
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/Japmanpreet-ctrl/AGE-AND-GENDER-PREDICTOR-USING-CNN-FUNCTIONAL-API.git
+cd AGE-AND-GENDER-PREDICTOR-USING-CNN-FUNCTIONAL-API
+```
+
+2. Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+3. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Train the model:
+
+```bash
+python3 scripts/train.py
+```
+
+Useful optional environment variables:
+
+```bash
+export AGE_GENDER_DATASET_LIMIT=5000
+export AGE_GENDER_TRAIN_HEAD_EPOCHS=3
+export AGE_GENDER_TRAIN_FINETUNE_EPOCHS=5
+```
+
+If you are offline and cannot download pretrained ResNet weights:
+
+```bash
+export AGE_GENDER_BACKBONE_WEIGHTS=none
+```
+
+5. Launch the Gradio app:
+
+```bash
+python3 app.py
+```
+
+If your saved model is in a custom location, set:
+
+```bash
+export AGE_GENDER_MODEL_PATH=/absolute/path/to/age_gender_resnet50.keras
+```
+
+To change where the local app runs:
+
+```bash
+export AGE_GENDER_APP_HOST=127.0.0.1
+export AGE_GENDER_APP_PORT=7860
+```
+
+## Inference Behavior
+
+At inference time, the app:
+
+1. Accepts an uploaded image
+2. Detects the most confident face with **MTCNN**
+3. Crops and preprocesses the face
+4. Runs the multitask model
+5. Returns:
+   - predicted age
+   - predicted gender
+   - gender probability
+
+To avoid overconfident outputs near the decision boundary, the app reports **Uncertain** when gender probability falls between `0.45` and `0.55`.
 
 ## Limitations
-- Not suitable for real-world biometric or legal applications
-- Dataset bias (UTKFace is not globally balanced)
-- Age estimation is inherently noisy
-- Gender prediction can be ambiguous for some faces
 
----
+- Performance depends heavily on image quality and frontal face visibility
+- Dataset bias in UTKFace can affect generalization
+- Age prediction is inherently noisy, especially for children and older adults
+- This project is not suitable for identity verification, hiring, policing, or medical use
 
-## Technologies Used
-- Python
-- TensorFlow / Keras
-- ResNet50
-- MTCNN
-- Gradio
-- NumPy, Pandas, Matplotlib
+## Notebook Status
 
----
+The original notebook is still included as:
 
-## How to Run
-1. Train the model using the provided pipeline
-2. Load the trained model
-3. Launch the Gradio interface
-4. Upload a face image and view predictions
+```text
+utk-dataset-model.ipynb
+```
 
----
+It remains useful for experimentation and training walkthroughs, while the extracted Python package makes the repo easier to run and maintain.
 
 ## Disclaimer
-This project is for **educational and demonstration purposes only**.  
-Predictions are probabilistic and may be incorrect. Do not use this system for sensitive or decision-critical applications.
 
----
-
-## Author Notes
-This project emphasizes:
-- Correct ML pipeline design
-- Training–inference consistency
-- Honest uncertainty handling
-- Clean, explainable architecture
-
-Built to be **defensible in viva, reviews, and demos**.
+This project is for **educational, learning, and demonstration purposes only**. Predictions may be inaccurate and should not be used in sensitive or decision-critical real-world contexts.
